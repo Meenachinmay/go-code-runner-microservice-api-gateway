@@ -1,0 +1,3 @@
+server_port: "8080"
+grpc_server_port: "51005"
+executor_service_address: "executor-service:50051"

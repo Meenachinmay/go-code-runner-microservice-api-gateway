@@ -1,0 +1,47 @@
+### List all problems
+GET http://localhost:8080/api/v1/problems
+Accept: application/json
+
+### Get a problem by ID
+GET http://localhost:8080/api/v1/problems/1
+Accept: application/json
+
+### Get problem ID 2
+GET http://localhost:8080/api/v1/problems/2
+Accept: application/json
+
+### Execute code against test cases for a problem
+POST http://localhost:8080/api/v1/execute
+Content-Type: application/json
+
+{
+  "language": "go",
+  "code": "package main\n\nimport \"fmt\"\n\nfunc main() {\n  var a, b int\n  fmt.Scan(&a, &b)\n  fmt.Println(a + b)\n}",
+  "problem_id": 1
+}
+
+> {%
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 202, "Response status is not 202");
+    });
+
+    if (response.body.job_id) {
+        client.global.set("problem1_job_id", response.body.job_id);
+        client.log("Saved problem1_job_id: " + response.body.job_id);
+    }
+%}
+
+### Check Job Status for Problem 1
+GET http://localhost:8080/api/v1/execute/job/{{problem1_job_id}}
+
+> {%
+    client.test("Job status request executed successfully", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+
+    client.test("Job ID in response matches requested ID", function() {
+        client.assert(response.body.job_id === client.global.get("problem1_job_id"), "Job ID mismatch");
+    });
+
+    client.log("Job status: " + response.body.status);
+%}
