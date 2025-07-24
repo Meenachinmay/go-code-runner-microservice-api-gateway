@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package company_auth.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "go-code-runner-microservice/proto/company_auth/v1;companyauthpb";
+
+// Company message represents a company entity
+message Company {
+  int32 id = 1;
+  string name = 2;
+  string email = 3;
+  optional string api_key = 4;
+  optional string client_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// Register request message
+message RegisterRequest {
+  string name = 1;
+  string email = 2;
+  string password = 3;
+}
+
+// Register response message
+message RegisterResponse {
+  bool success = 1;
+  optional string error = 2;
+  optional Company company = 3;
+}
+
+// Login request message
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+// Login response message
+message LoginResponse {
+  bool success = 1;
+  optional string error = 2;
+  optional Company company = 3;
+  optional string token = 4;
+}
+
+// GenerateAPIKey request message
+message GenerateAPIKeyRequest {
+  int32 company_id = 1;
+}
+
+// GenerateAPIKey response message
+message GenerateAPIKeyResponse {
+  bool success = 1;
+  optional string error = 2;
+  optional string api_key = 3;
+}
+
+// GenerateClientID request message
+message GenerateClientIDRequest {
+  int32 company_id = 1;
+}
+
+// GenerateClientID response message
+message GenerateClientIDResponse {
+  bool success = 1;
+  optional string error = 2;
+  optional string client_id = 3;
+}
+
+// CompanyAuthService provides methods for company authentication
+service CompanyAuthService {
+  // Register registers a new company
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Login authenticates a company and returns a token
+  rpc Login(LoginRequest) returns (LoginResponse);
+
+  // GenerateAPIKey generates a new API key for a company
+  rpc GenerateAPIKey(GenerateAPIKeyRequest) returns (GenerateAPIKeyResponse);
+
+  // GenerateClientID generates a new client ID for a company
+  rpc GenerateClientID(GenerateClientIDRequest) returns (GenerateClientIDResponse);
+}

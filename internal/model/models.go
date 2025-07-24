@@ -4,6 +4,17 @@ import (
 	"time"
 )
 
+type RegisterRequest struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 // Problem represents a coding problem
 type Problem struct {
 	ID          int       `json:"id" db:"id"`
@@ -26,16 +37,16 @@ type ProblemResponse struct {
 
 // ListProblemsResponse is the response for listing problems
 type ListProblemsResponse struct {
-	Success  bool             `json:"success"`
+	Success  bool              `json:"success"`
 	Problems []ProblemResponse `json:"problems"`
-	Error    string           `json:"error,omitempty"`
+	Error    string            `json:"error,omitempty"`
 }
 
 // GetProblemResponse is the response for getting a single problem
 type GetProblemResponse struct {
-	Success bool           `json:"success"`
+	Success bool            `json:"success"`
 	Problem ProblemResponse `json:"problem"`
-	Error   string         `json:"error,omitempty"`
+	Error   string          `json:"error,omitempty"`
 }
 
 type TestCase struct {
@@ -98,6 +109,45 @@ type Company struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// RegisterResponse is the response for registering a company
+type RegisterResponse struct {
+	Success bool     `json:"success"`
+	Error   string   `json:"error,omitempty"`
+	Company *Company `json:"company,omitempty"`
+}
+
+// LoginResponse is the response for logging in a company
+type LoginResponse struct {
+	Success bool     `json:"success"`
+	Error   string   `json:"error,omitempty"`
+	Company *Company `json:"company,omitempty"`
+	Token   string   `json:"token,omitempty"`
+}
+
+// GenerateAPIKeyRequest is the request for generating an API key
+type GenerateAPIKeyRequest struct {
+	CompanyID int `json:"company_id" binding:"required"`
+}
+
+// GenerateAPIKeyResponse is the response for generating an API key
+type GenerateAPIKeyResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+	APIKey  string `json:"api_key,omitempty"`
+}
+
+// GenerateClientIDRequest is the request for generating a client ID
+type GenerateClientIDRequest struct {
+	CompanyID int `json:"company_id" binding:"required"`
+}
+
+// GenerateClientIDResponse is the response for generating a client ID
+type GenerateClientIDResponse struct {
+	Success  bool   `json:"success"`
+	Error    string `json:"error,omitempty"`
+	ClientID string `json:"client_id,omitempty"`
+}
+
 type CodingTest struct {
 	ID                  string     `json:"id" db:"id"`
 	CompanyID           int        `json:"company_id" db:"company_id"`
@@ -128,9 +178,65 @@ type TestCaseResponse struct {
 
 // GetTestCasesByProblemIDResponse is the response for getting test cases for a problem
 type GetTestCasesByProblemIDResponse struct {
-	Success   bool              `json:"success"`
+	Success   bool               `json:"success"`
 	TestCases []TestCaseResponse `json:"test_cases"`
-	Error     string            `json:"error,omitempty"`
+	Error     string             `json:"error,omitempty"`
+}
+
+// VerifyTestResponse is the response for verifying a test
+type VerifyTestResponse struct {
+	Success bool       `json:"success"`
+	Test    CodingTest `json:"test,omitempty"`
+	Error   string     `json:"error,omitempty"`
+}
+
+// StartTestRequest is the request for starting a test
+type StartTestRequest struct {
+	CandidateName  string `json:"candidate_name" binding:"required"`
+	CandidateEmail string `json:"candidate_email" binding:"required"`
+}
+
+// StartTestResponse is the response for starting a test
+type StartTestResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// SubmitTestRequest is the request for submitting a test
+type SubmitTestRequest struct {
+	Code             string `json:"code" binding:"required"`
+	PassedPercentage int    `json:"passed_percentage" binding:"required"`
+}
+
+// SubmitTestResponse is the response for submitting a test
+type SubmitTestResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// GenerateTestRequest is the request for generating a test
+type GenerateTestRequest struct {
+	CompanyID      int     `json:"company_id" binding:"required"`
+	ClientID       *string `json:"client_id" binding:"required"`
+	ProblemID      int     `json:"problem_id" binding:"required"`
+	ExpiresInHours int     `json:"expires_in_hours" binding:"required"`
+}
+
+// GenerateTestResponse is the response for generating a test
+type GenerateTestResponse struct {
+	Success bool       `json:"success"`
+	Test    CodingTest `json:"test,omitempty"`
+	Link    string     `json:"link,omitempty"`
+	Error   string     `json:"error,omitempty"`
+}
+
+// GetCompanyTestsResponse is the response for getting company tests
+type GetCompanyTestsResponse struct {
+	Success bool         `json:"success"`
+	Tests   []CodingTest `json:"tests,omitempty"`
+	Error   string       `json:"error,omitempty"`
 }
 
 const (

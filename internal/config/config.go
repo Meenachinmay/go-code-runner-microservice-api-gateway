@@ -12,12 +12,14 @@ type RawConfig struct {
 	ServerPort             string `yaml:"server_port"`
 	RequestTimeout         int    `yaml:"request_timeout"`
 	ExecutorServiceAddress string `yaml:"executor_service_address"`
+	CompanyAuthAddress     string `yaml:"company_auth_address"`
 }
 
 type Config struct {
 	ServerPort             string
 	RequestTimeout         int
 	ExecutorServiceAddress string
+	CompanyAuthAddress     string
 }
 
 func Load() (*Config, error) {
@@ -49,10 +51,14 @@ func Load() (*Config, error) {
 	if v := os.Getenv("EXECUTOR_SERVICE_ADDRESS"); v != "" {
 		raw.ExecutorServiceAddress = v
 	}
+	if v := os.Getenv("COMPANY_AUTH_ADDRESS"); v != "" {
+		raw.CompanyAuthAddress = v
+	}
 
 	return &Config{
 		ServerPort:             raw.ServerPort,
 		RequestTimeout:         raw.RequestTimeout,
 		ExecutorServiceAddress: raw.ExecutorServiceAddress,
+		CompanyAuthAddress:     raw.CompanyAuthAddress,
 	}, nil
 }

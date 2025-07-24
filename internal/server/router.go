@@ -4,11 +4,17 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go-code-runner-microservice/api-gateway/internal/handler"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/coding_tests"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/company_auth"
 	"go-code-runner-microservice/api-gateway/internal/service/grpc/executor"
 	"go-code-runner-microservice/api-gateway/internal/service/grpc/problems"
 )
 
-func NewRouter(executorClient *executor.Client, problemsClient *problems.Client) *gin.Engine {
+func NewRouter(
+	executorClient *executor.Client,
+	problemsClient *problems.Client,
+	codingTestsClient *coding_tests.Client,
+	companyAuthClient *company_auth.Client) *gin.Engine {
 
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -30,6 +36,25 @@ func NewRouter(executorClient *executor.Client, problemsClient *problems.Client)
 		v1.GET("/problems", handler.MakeListProblemsHandler(problemsClient))
 		v1.GET("/problems/:id", handler.MakeGetProblemHandler(problemsClient))
 		v1.GET("/problems/:id/test-cases", handler.MakeGetTestCasesByProblemIDHandler(problemsClient))
+
+		codingTests := v1.Group("/tests")
+		{
+			codingTests.GET("/:test_id/verify", handler.MakeVerifyTestHandler(codingTestsClient))
+			codingTests.POST("/:test_id/start", handler.MakeStartTestHandler(codingTestsClient))
+			codingTests.POST("/:test_id/submit", handler.MakeSubmitTestHandler(codingTestsClient))
+			codingTests.POST("/generate", handler.MakeGenerateTestHandler(codingTestsClient))
+			codingTests.GET("/company/:company_id", handler.MakeGetCompanyTestsHandler(codingTestsClient))
+		}
+
+		// Company authentication routes
+		companyHandler := handler.NewCompanyHandler(companyAuthClient)
+		companies := v1.Group("/companies")
+		{
+			companies.POST("/register", companyHandler.Register)
+			companies.POST("/login", companyHandler.Login)
+			companies.POST("/api-key", companyHandler.GenerateAPIKey)
+			companies.POST("/client-id", companyHandler.GenerateClientID)
+		}
 	}
 
 	return r
