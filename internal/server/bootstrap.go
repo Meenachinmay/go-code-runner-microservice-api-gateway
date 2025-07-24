@@ -1,87 +1,141 @@
+// internal/server/bootstrap.go
 package server
 
 import (
 	"context"
 	"errors"
-	"github.com/joho/godotenv"
-	"go-code-runner-microservice/api-gateway/internal/config"
-	"go-code-runner-microservice/api-gateway/internal/service/grpc/coding_tests"
-	"go-code-runner-microservice/api-gateway/internal/service/grpc/company_auth"
-	"go-code-runner-microservice/api-gateway/internal/service/grpc/executor"
-	"go-code-runner-microservice/api-gateway/internal/service/grpc/problems"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/joho/godotenv"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"go-code-runner-microservice/api-gateway/internal/config"
+	"go-code-runner-microservice/api-gateway/internal/logger"
+	"go-code-runner-microservice/api-gateway/internal/middleware"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/coding_tests"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/company_auth"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/executor"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/problems"
 )
 
 func Run() {
-	logger := log.New(os.Stdout, "API-GATEWAY: ", log.LstdFlags|log.Lmicroseconds)
+	// Load environment variables
 	_ = godotenv.Load()
 
+	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		logger.Fatalf("failed to laod configuration: %v1", err)
+		// Use basic logging before logger is initialized
+		panic("failed to load configuration: " + err.Error())
 	}
 
-	executorClient, err := executor.NewClient(cfg.ExecutorServiceAddress)
-	logger.Println("executor service address: ", cfg.ExecutorServiceAddress)
+	// Initialize logger
+	logConfig := logger.Config{
+		Level:       cfg.Logging.Level,
+		Environment: cfg.Logging.Environment,
+		ServiceName: "api-gateway",
+	}
+	if err := logger.Initialize(logConfig); err != nil {
+		panic("failed to initialize logger: " + err.Error())
+	}
+	defer logger.Sync()
+
+	log := logger.Get()
+	log.Info("starting api-gateway service",
+		zap.String("version", "1.0.0"), // Add version from build info
+		zap.String("environment", cfg.Logging.Environment),
+		zap.String("log_level", cfg.Logging.Level),
+	)
+
+	// Create gRPC dial options with logging interceptor
+	grpcOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(middleware.UnaryClientLoggingInterceptor()),
+	}
+
+	// Initialize gRPC clients with logging
+	executorClient, err := executor.NewClientWithOptions(cfg.ExecutorServiceAddress, grpcOpts...)
 	if err != nil {
-		logger.Fatalf("failed to connect to executor service: %v", err)
+		log.Fatal("failed to connect to executor service",
+			zap.String("address", cfg.ExecutorServiceAddress),
+			zap.Error(err),
+		)
 	}
 	defer executorClient.Close()
+	log.Info("connected to executor service", zap.String("address", cfg.ExecutorServiceAddress))
 
-	problemsClient, err := problems.NewClient(cfg.ExecutorServiceAddress)
-	logger.Println("problems service address: ", cfg.ExecutorServiceAddress)
+	problemsClient, err := problems.NewClientWithOptions(cfg.ExecutorServiceAddress, grpcOpts...)
 	if err != nil {
-		logger.Fatalf("failed to connect to problems service: %v", err)
+		log.Fatal("failed to connect to problems service",
+			zap.String("address", cfg.ExecutorServiceAddress),
+			zap.Error(err),
+		)
 	}
 	defer problemsClient.Close()
+	log.Info("connected to problems service", zap.String("address", cfg.ExecutorServiceAddress))
 
-	codingTestsClient, err := coding_tests.NewClient(cfg.ExecutorServiceAddress)
-	logger.Println("coding tests service address: ", cfg.ExecutorServiceAddress)
+	codingTestsClient, err := coding_tests.NewClientWithOptions(cfg.ExecutorServiceAddress, grpcOpts...)
 	if err != nil {
-		logger.Fatalf("failed to connect to coding tests service: %v", err)
+		log.Fatal("failed to connect to coding tests service",
+			zap.String("address", cfg.ExecutorServiceAddress),
+			zap.Error(err),
+		)
 	}
 	defer codingTestsClient.Close()
+	log.Info("connected to coding tests service", zap.String("address", cfg.ExecutorServiceAddress))
 
-	companyAuthClient, err := company_auth.NewClient(cfg.CompanyAuthAddress)
-	logger.Println("company auth service address: ", cfg.CompanyAuthAddress)
+	companyAuthClient, err := company_auth.NewClientWithOptions(cfg.CompanyAuthAddress, grpcOpts...)
 	if err != nil {
-		logger.Fatalf("failed to connect to company auth service: %v", err)
+		log.Fatal("failed to connect to company auth service",
+			zap.String("address", cfg.CompanyAuthAddress),
+			zap.Error(err),
+		)
 	}
 	defer companyAuthClient.Close()
+	log.Info("connected to company auth service", zap.String("address", cfg.CompanyAuthAddress))
 
+	// Create router
 	r := NewRouter(executorClient, problemsClient, codingTestsClient, companyAuthClient)
 
+	// Create HTTP server
 	addr := ":" + cfg.ServerPort
-	logger.Printf("starting HTTP server on %s", addr)
-
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: r,
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
+	// Start server in goroutine
 	go func() {
+		log.Info("starting HTTP server", zap.String("address", addr))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatalf("server error: %v", err)
+			log.Fatal("server error", zap.Error(err))
 		}
 	}()
 
+	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	logger.Println("Shutdown signal received, initiating graceful shutdown...")
 
+	log.Info("shutdown signal received, initiating graceful shutdown")
+
+	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	logger.Println("Shutting down HTTP server...")
+	log.Info("shutting down HTTP server")
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Fatalf("Server forced to shutdown: %v", err)
+		log.Error("server forced to shutdown", zap.Error(err))
 	}
 
-	logger.Println("Server exiting")
+	log.Info("server exited successfully")
 }

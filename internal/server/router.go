@@ -4,6 +4,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go-code-runner-microservice/api-gateway/internal/handler"
+	"go-code-runner-microservice/api-gateway/internal/middleware"
 	"go-code-runner-microservice/api-gateway/internal/service/grpc/coding_tests"
 	"go-code-runner-microservice/api-gateway/internal/service/grpc/company_auth"
 	"go-code-runner-microservice/api-gateway/internal/service/grpc/executor"
@@ -17,12 +18,16 @@ func NewRouter(
 	companyAuthClient *company_auth.Client) *gin.Engine {
 
 	r := gin.New()
+
+	r.Use(middleware.ErrorHandlingMiddleware())
+	r.Use(middleware.LoggingMiddleware())
 	r.Use(gin.Recovery())
 
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"http://localhost:5173"}
-	config.AllowMethods = []string{"GET", "POST", "PUT"}
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Correlation-ID"}
+	config.ExposeHeaders = []string{"X-Request-ID", "X-Correlation-ID"}
 	config.AllowCredentials = true
 	r.Use(cors.New(config))
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	companyauthpb "go-code-runner-microservice/api-gateway/go-code-runner-microservice/proto/company_auth/v1"
 	baseClient "go-code-runner-microservice/api-gateway/internal/service/grpc"
+	"google.golang.org/grpc"
 )
 
 type Client struct {
@@ -14,6 +15,18 @@ type Client struct {
 
 func NewClient(address string) (*Client, error) {
 	base, err := baseClient.NewClient(address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create company auth client: %w", err)
+	}
+
+	return &Client{
+		client: companyauthpb.NewCompanyAuthServiceClient(base.Connection()),
+		base:   base,
+	}, nil
+}
+
+func NewClientWithOptions(address string, opts ...grpc.DialOption) (*Client, error) {
+	base, err := baseClient.NewClientWithOptions(address, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create company auth client: %w", err)
 	}
