@@ -9,10 +9,16 @@ import (
 )
 
 type RawConfig struct {
-	ServerPort             string `yaml:"server_port"`
-	RequestTimeout         int    `yaml:"request_timeout"`
-	ExecutorServiceAddress string `yaml:"executor_service_address"`
-	CompanyAuthAddress     string `yaml:"company_auth_address"`
+	ServerPort             string    `yaml:"server_port"`
+	RequestTimeout         int       `yaml:"request_timeout"`
+	ExecutorServiceAddress string    `yaml:"executor_service_address"`
+	CompanyAuthAddress     string    `yaml:"company_auth_address"`
+	Logging                LogConfig `yaml:"logging"`
+}
+
+type LogConfig struct {
+	Level       string `yaml:"level"`
+	Environment string `yaml:"environment"`
 }
 
 type Config struct {
@@ -20,6 +26,7 @@ type Config struct {
 	RequestTimeout         int
 	ExecutorServiceAddress string
 	CompanyAuthAddress     string
+	Logging                LogConfig
 }
 
 func Load() (*Config, error) {
@@ -54,11 +61,25 @@ func Load() (*Config, error) {
 	if v := os.Getenv("COMPANY_AUTH_ADDRESS"); v != "" {
 		raw.CompanyAuthAddress = v
 	}
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		raw.Logging.Level = v
+	}
+	if v := os.Getenv("ENVIRONMENT"); v != "" {
+		raw.Logging.Environment = v
+	}
+
+	if raw.Logging.Level == "" {
+		raw.Logging.Level = "info"
+	}
+	if raw.Logging.Environment == "" {
+		raw.Logging.Environment = env
+	}
 
 	return &Config{
 		ServerPort:             raw.ServerPort,
 		RequestTimeout:         raw.RequestTimeout,
 		ExecutorServiceAddress: raw.ExecutorServiceAddress,
 		CompanyAuthAddress:     raw.CompanyAuthAddress,
+		Logging:                raw.Logging,
 	}, nil
 }
