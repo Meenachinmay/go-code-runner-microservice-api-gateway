@@ -5,6 +5,8 @@ import (
 	"errors"
 	"github.com/joho/godotenv"
 	"go-code-runner-microservice/api-gateway/internal/config"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/coding_tests"
+	"go-code-runner-microservice/api-gateway/internal/service/grpc/company_auth"
 	"go-code-runner-microservice/api-gateway/internal/service/grpc/executor"
 	"go-code-runner-microservice/api-gateway/internal/service/grpc/problems"
 	"log"
@@ -24,7 +26,6 @@ func Run() {
 		logger.Fatalf("failed to laod configuration: %v1", err)
 	}
 
-	// SERVICES
 	executorClient, err := executor.NewClient(cfg.ExecutorServiceAddress)
 	logger.Println("executor service address: ", cfg.ExecutorServiceAddress)
 	if err != nil {
@@ -39,7 +40,21 @@ func Run() {
 	}
 	defer problemsClient.Close()
 
-	r := NewRouter(executorClient, problemsClient)
+	codingTestsClient, err := coding_tests.NewClient(cfg.ExecutorServiceAddress)
+	logger.Println("coding tests service address: ", cfg.ExecutorServiceAddress)
+	if err != nil {
+		logger.Fatalf("failed to connect to coding tests service: %v", err)
+	}
+	defer codingTestsClient.Close()
+
+	companyAuthClient, err := company_auth.NewClient(cfg.CompanyAuthAddress)
+	logger.Println("company auth service address: ", cfg.CompanyAuthAddress)
+	if err != nil {
+		logger.Fatalf("failed to connect to company auth service: %v", err)
+	}
+	defer companyAuthClient.Close()
+
+	r := NewRouter(executorClient, problemsClient, codingTestsClient, companyAuthClient)
 
 	addr := ":" + cfg.ServerPort
 	logger.Printf("starting HTTP server on %s", addr)

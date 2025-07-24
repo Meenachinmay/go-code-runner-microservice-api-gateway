@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package coding_tests.v1;
+
+option go_package = "go-code-runner-microservice/proto/coding_tests/v1;codingtestspb";
+
+import "google/protobuf/timestamp.proto";
+
+service CodingTestService {
+  rpc VerifyTest(VerifyTestRequest) returns (VerifyTestResponse);
+  rpc StartTest(StartTestRequest) returns (StartTestResponse);
+  rpc SubmitTest(SubmitTestRequest) returns (SubmitTestResponse);
+  rpc GenerateTest(GenerateTestRequest) returns (GenerateTestResponse);
+  rpc GetCompanyTests(GetCompanyTestsRequest) returns (GetCompanyTestsResponse);
+}
+
+message VerifyTestRequest {
+  string test_id = 1;
+}
+
+message VerifyTestResponse {
+  CodingTest test = 1;
+}
+
+message StartTestRequest {
+  string test_id = 1;
+  string candidate_name = 2;
+  string candidate_email = 3;
+}
+
+message StartTestResponse {
+  string message = 1;
+}
+
+message SubmitTestRequest {
+  string test_id = 1;
+  string code = 2;
+  int32 passed_percentage = 3;
+}
+
+message SubmitTestResponse {
+  string message = 1;
+}
+
+message GenerateTestRequest {
+  int32 company_id = 1;
+  int32 problem_id = 2;
+  int32 expires_in_hours = 3;
+  string client_id = 4;
+}
+
+message GenerateTestResponse {
+  CodingTest test = 1;
+  string link = 2;
+}
+
+message GetCompanyTestsRequest {
+  int32 company_id = 1;
+}
+
+message GetCompanyTestsResponse {
+  repeated CodingTest tests = 1;
+}
+
+message CodingTest {
+  string id = 1;
+  int32 company_id = 2;
+  int32 problem_id = 3;
+  string candidate_name = 4;
+  string candidate_email = 5;
+  string status = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
+  int32 test_duration_minutes = 10;
+  string submission_code = 11;
+  int32 passed_percentage = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}

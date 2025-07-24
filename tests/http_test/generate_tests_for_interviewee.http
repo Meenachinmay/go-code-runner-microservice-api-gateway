@@ -1,0 +1,225 @@
+### Login with company credentials
+POST http://localhost:8080/api/v1/companies/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+> {%
+    console.log("Login response body:", response.body);
+
+    // Attempt to get the token
+    let token = response.body.token;
+
+    if (token) {
+        console.log("Captured token:", token);
+        client.global.set("accessToken", token);
+        console.log("'accessToken' has been set globally for the session.");
+    } else {
+        console.error("ERROR: 'token' not found in the response body!");
+    }
+
+    // Extract company ID from the response
+    if (response.body.company && response.body.company.id) {
+        let companyId = response.body.company.id;
+        console.log("Captured company_id:", companyId);
+        client.global.set("companyId", companyId);
+        console.log("'companyId' has been set globally for the session.");
+        let clientId = response.body.company.client_id;
+        console.log("Captured clientId:", clientId)
+        client.global.set("clientId", clientId)
+        console.log("'clientId' has been set globally for the session.");
+    } else {
+        console.error("ERROR: 'company.id' not found in the response body!");
+    }
+%}
+
+### Generate a client ID
+# Uses the token captured from the login response
+POST http://localhost:8080/api/v1/companies/client-id
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "company_id": {{companyId}}
+}
+
+> {%
+    console.log("Client ID response body:", response.body);
+
+    // Attempt to get the client_id
+    let clientId = response.body.client_id;
+
+    if (clientId) {
+        console.log("Captured client_id:", clientId);
+        client.global.set("clientId", clientId);
+        console.log("'clientId' has been set globally for the session.");
+    } else {
+        console.error("ERROR: 'client_id' not found in the response body!");
+    }
+%}
+
+### Generate an API key
+# Uses the token captured from the login response
+POST http://localhost:8080/api/v1/companies/api-key
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "company_id": {{companyId}}
+}
+
+> {%
+    console.log("API key response body:", response.body);
+
+    // Attempt to get the api_key
+    let apiKey = response.body.api_key;
+
+    if (apiKey) {
+        console.log("Captured api_key:", apiKey);
+        client.global.set("apiKey", apiKey);
+        console.log("'apiKey' has been set globally for the session.");
+    } else {
+        console.error("ERROR: 'api_key' not found in the response body!");
+    }
+%}
+
+### Generate a coding test with problem ID 1
+# Uses the API key captured from the previous response
+POST http://localhost:8080/api/v1/tests/generate
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "problem_id": 1,
+  "company_id": {{ companyId }},
+  "client_id": "d753f7502f76281afe2d1904114b871e",
+  "expires_in_hours": 24
+}
+
+> {%
+    console.log("Generate test response body:", response.body);
+
+    // Attempt to get the test_id
+    let test = response.body.test;
+    let testId = test ? test.id : null;
+
+    if (testId) {
+        console.log("Captured test_id:", testId);
+        client.global.set("testId", testId);
+        console.log("'testId' has been set globally for the session.");
+    } else {
+        console.error("ERROR: 'test.id' not found in the response body!");
+    }
+%}
+
+### Verify the test
+GET http://localhost:8080/api/v1/tests/{{testId}}/verify
+Content-Type: application/json
+
+> {%
+    console.log("Verify test response body:", response.body);
+
+    // Verify that the test exists and is in pending status
+    let status = response.body.status;
+    let problemId = response.body.problem_id;
+
+    console.log("Test status:", status);
+    console.log("Problem ID:", problemId);
+%}
+
+### Start the test as a candidate
+POST http://localhost:8080/api/v1/tests/{{testId}}/start
+Content-Type: application/json
+
+{
+  "candidate_name": "John Doe",
+  "candidate_email": "john.doe@example.com"
+}
+
+> {%
+    console.log("Start test response body:", response.body);
+
+    // Verify that the test started successfully
+    let message = response.body.message;
+
+    console.log("Start test message:", message);
+%}
+
+### Execute code for the test (Two Sum problem)
+POST http://localhost:8080/api/v1/execute
+Content-Type: application/json
+
+{
+  "language": "go",
+  "code": "package main\n\nimport \"fmt\"\n\nfunc main() {\n  var a, b int\n  fmt.Scan(&a, &b)\n  fmt.Println(a + b)\n}",
+  "problem_id": 1
+}
+
+> {%
+    console.log("Execute code response body:", response.body);
+
+    // Check if the request was accepted
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 202, "Response status is not 202");
+    });
+
+    // Save the job ID for checking status
+    if (response.body.job_id) {
+        console.log("Captured job_id:", response.body.job_id);
+        client.global.set("testJobId", response.body.job_id);
+    }
+%}
+
+### Check Job Status for Test Execution
+GET http://localhost:8080/api/v1/execute/job/{{testJobId}}
+
+> {%
+    console.log("Job status response body:", response.body);
+
+    client.test("Job status request executed successfully", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+
+    // Check if the job is completed
+    let status = response.body.status;
+    console.log("Job status:", status);
+
+    // Calculate the passed percentage if job is completed and has test results
+    if (status === "completed" && response.body.test_results) {
+        let testResults = response.body.test_results;
+        let passedCount = 0;
+
+        for (let i = 0; i < testResults.length; i++) {
+            if (testResults[i].passed) {
+                passedCount++;
+            }
+        }
+
+        let passedPercentage = Math.round((passedCount / testResults.length) * 100);
+        console.log("Passed percentage:", passedPercentage);
+        client.global.set("passedPercentage", passedPercentage);
+    } else {
+        // Default to 0 if job is not completed or has no test results
+        client.global.set("passedPercentage", 0);
+    }
+%}
+
+### Submit the test with passed percentage
+POST http://localhost:8080/api/v1/tests/{{testId}}/submit
+Content-Type: application/json
+
+{
+  "code": "package main\n\nimport \"fmt\"\n\nfunc main() {\n  var a, b int\n  fmt.Scan(&a, &b)\n  fmt.Println(a + b)\n}",
+  "passed_percentage": {{passedPercentage}}
+}
+
+> {%
+    console.log("Submit test response body:", response.body);
+
+    let message = response.body.message;
+
+    console.log("Submit test message:", message);
+%}
